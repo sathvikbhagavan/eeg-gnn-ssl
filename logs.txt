@@ -1,0 +1,3 @@
+Python binary: /work/cvlab/students/bhagavan/GNN_EPFL_PROJECT/.nml/bin/python
+Python version: Python 3.10.4
+Kaggle submission file generated: submission.csv

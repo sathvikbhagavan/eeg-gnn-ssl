@@ -1,0 +1,18 @@
+#!/bin/bash
+
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=8
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:1
+#SBATCH --time=1:00:00
+#SBATCH --output=./logs.txt
+#SBATCH --mem=32GB
+
+source /work/cvlab/students/bhagavan/GNN_EPFL_PROJECT/.nml/bin/activate
+
+# Debugging: Check Python and PyTorch
+echo "Python binary: $(which python)"
+echo "Python version: $(python --version)"
+
+# Run the script
+srun python3 inference.py

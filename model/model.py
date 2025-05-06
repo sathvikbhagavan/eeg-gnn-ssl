@@ -206,14 +206,14 @@ class DCGRUDecoder(nn.Module):
 
 ########## Model for seizure classification/detection ##########
 class DCRNNModel_classification(nn.Module):
-    def __init__(self, args, num_classes, device=None):
+    def __init__(self, num_nodes, num_rnn_layers, rnn_units, input_dim, num_classes, max_diffusion_step, dcgru_activation, filter_type, dropout, device=None):
         super(DCRNNModel_classification, self).__init__()
 
-        num_nodes = args.num_nodes
-        num_rnn_layers = args.num_rnn_layers
-        rnn_units = args.rnn_units
-        enc_input_dim = args.input_dim
-        max_diffusion_step = args.max_diffusion_step
+        # num_nodes = args.num_nodes
+        # num_rnn_layers = args.num_rnn_layers
+        # rnn_units = args.rnn_units
+        # enc_input_dim = args.input_dim
+        # max_diffusion_step = args.max_diffusion_step
 
         self.num_nodes = num_nodes
         self.num_rnn_layers = num_rnn_layers
@@ -221,15 +221,15 @@ class DCRNNModel_classification(nn.Module):
         self._device = device
         self.num_classes = num_classes
 
-        self.encoder = DCRNNEncoder(input_dim=enc_input_dim,
+        self.encoder = DCRNNEncoder(input_dim=input_dim,
                                     max_diffusion_step=max_diffusion_step,
                                     hid_dim=rnn_units, num_nodes=num_nodes,
                                     num_rnn_layers=num_rnn_layers,
-                                    dcgru_activation=args.dcgru_activation,
-                                    filter_type=args.filter_type)
+                                    dcgru_activation=dcgru_activation,
+                                    filter_type=filter_type)
 
         self.fc = nn.Linear(rnn_units, num_classes)
-        self.dropout = nn.Dropout(args.dropout)
+        self.dropout = nn.Dropout(dropout)
         self.relu = nn.ReLU()
 
     def forward(self, input_seq, seq_lengths, supports):
@@ -248,7 +248,7 @@ class DCRNNModel_classification(nn.Module):
 
         # initialize the hidden state of the encoder
         init_hidden_state = self.encoder.init_hidden(
-            batch_size).to(self._device)
+            batch_size).to(self._device) # (num_layers, batch, num_nodes * rnn_units)
 
         # last hidden state of the encoder is the context
         # (max_seq_len, batch, rnn_units*num_nodes)
