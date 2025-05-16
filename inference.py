@@ -124,7 +124,7 @@ model = DCRNNModel_classification(
     device=device
 )
 
-model.load_state_dict(torch.load("/work/cvlab/students/bhagavan/eeg-gnn-ssl/wandb/run-20250504_190416-fsdmqeew/files/best_diffusion_gnn_model.pth"))  # Load the trained model weights
+model.load_state_dict(torch.load("/work/cvlab/students/bhagavan/eeg-gnn-ssl/wandb/run-20250504_190416-fsdmqeew/files/best_diffusion_gnn_model.pth", map_location=device))  # Load the trained model weights
 model.to(device)
 model.eval()
 
@@ -150,6 +150,7 @@ with torch.no_grad():
         # Assume each batch returns a tuple (x_batch, sample_id)
         # If your dataset does not provide IDs, you can generate them based on the batch index.
         x_batch, x_ids = batch
+        actual_x_ids = x_ids
         x_ids = [clean_underscores(x_id) for x_id in x_ids]  # Clean the IDs
 
         # Move the input data to the device (GPU or CPU)
@@ -165,7 +166,7 @@ with torch.no_grad():
 
         # Append predictions and corresponding IDs to the lists
         all_predictions.extend(predictions.flatten().tolist())
-        all_ids.extend(list(x_ids))
+        all_ids.extend(list(actual_x_ids))
 
 # Create a DataFrame for Kaggle submission with the required format: "id,label"
 submission_df = pd.DataFrame({"id": all_ids, "label": all_predictions})
