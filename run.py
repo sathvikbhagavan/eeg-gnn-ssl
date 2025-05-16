@@ -51,7 +51,9 @@ data_path = "/work/cvlab/students/bhagavan/GNN_EPFL_PROJECT/nml_project/data/tra
 DATA_ROOT = Path(data_path)
 # DATA_ROOT_TEST = Path("/work/cvlab/students/bhagavan/GNN_EPFL_PROJECT/nml_project/data/test")
 
-clips_tr = pd.read_parquet(DATA_ROOT / "train/segments.parquet")
+clips_tr = pd.read_parquet(DATA_ROOT / "train/segments_train.parquet")
+clips_va = pd.read_parquet(DATA_ROOT / "train/segments_val.parquet")
+# clips_tr = pd.read_parquet(DATA_ROOT / "train/segments.parquet")
 # clips_te = pd.read_parquet(DATA_ROOT_TEST / "test/segments.parquet")
 
 
@@ -84,6 +86,12 @@ dataset_tr = EEGDataset(
     signal_transform=fft_filtering,
     prefetch=True,  # If your compute does not allow it, you can use `prefetch=False`
 )
+dataset_va = EEGDataset(
+    clips_va,
+    signals_root=DATA_ROOT / "train",
+    signal_transform=fft_filtering,
+    prefetch=True,  # If your compute does not allow it, you can use `prefetch=False`
+)
 
 """## Compatibility with PyTorch
 
@@ -108,6 +116,7 @@ def seed_everything(seed: int):
 seed_everything(1)
 batch_size = 128
 loader_tr = DataLoader(dataset_tr, batch_size=batch_size, shuffle=True)
+loader_va = DataLoader(dataset_va, batch_size=batch_size, shuffle=True)
 
 # Set up device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -187,8 +196,10 @@ supports = [support.to(device) for support in supports]
 
 # Initialize Weights and Biases
 wandb.init(project="diffusion-gnn", config={
+    "num_nodes": num_nodes,
     "input_dim": input_dim,
     "rnn_units": rnn_units,
+    "num_rnn_layers": num_rnn_layers,
     "num_classes": num_classes,
     "max_diffusion_step": max_diffusion_step,
     "dcgru_activation": dcgru_activation,
@@ -252,7 +263,7 @@ for epoch in tqdm(range(epochs), desc="Training"):
     total = 0
 
     with torch.no_grad():
-        for x_batch, y_batch in loader_tr:
+        for x_batch, y_batch in loader_va:
             x_batch = x_batch.float().unsqueeze(-1).to(device)
             y_batch = y_batch.float().unsqueeze(1).to(device)
             seq_lengths = torch.ones(x_batch.shape[0], dtype=torch.long).to(device)*354
