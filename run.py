@@ -22,6 +22,7 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from model.model import DCRNNModel_classification
 
@@ -122,38 +123,31 @@ loader_va = DataLoader(dataset_va, batch_size=batch_size, shuffle=True)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
 
-# Define node list (in order, matching your image)
-nodes = [
-    'Fp1', 'Fp2', 'F7', 'F3', 'Fz', 'F4', 'F8',
-    'T3', 'C3', 'Cz', 'C4', 'T4',
-    'T5', 'P3', 'Pz', 'P4', 'T6',
-    'O1', 'O2'
+INCLUDED_CHANNELS = [
+    'FP1',
+    'FP2',
+    'F3',
+    'F4',
+    'C3',
+    'C4',
+    'P3',
+    'P4',
+    'O1',
+    'O2',
+    'F7',
+    'F8',
+    'T3',
+    'T4',
+    'T5',
+    'T6',
+    'FZ',
+    'CZ',
+    'PZ'
 ]
 
-# Define edge list (bidirectional edges for undirected graph)
-edges = [
-    ('Fp1', 'F7'), ('Fp1', 'F3'), ('Fp1', 'Fp2'),
-    ('Fp2', 'F4'), ('Fp2', 'F8'),
-    ('F7', 'F3'), ('F3', 'Fz'), ('Fz', 'F4'), ('F4', 'F8'),
-    ('F7', 'T3'), ('F3', 'C3'), ('Fz', 'Cz'), ('F4', 'C4'), ('F8', 'T4'),
-    ('T3', 'C3'), ('C3', 'Cz'), ('Cz', 'C4'), ('C4', 'T4'),
-    ('T3', 'T5'), ('C3', 'P3'), ('Cz', 'Pz'), ('C4', 'P4'), ('T4', 'T6'),
-    ('T5', 'P3'), ('P3', 'Pz'), ('Pz', 'P4'), ('P4', 'T6'),
-    ('T5', 'O1'), ('P3', 'O1'), ('Pz', 'O1'), ('Pz', 'O2'), ('P4', 'O2'), ('T6', 'O2')
-]
-
-# Create a mapping from node names to indices
-node_idx = {node: i for i, node in enumerate(nodes)}
-
-# Convert edge list to index tensors
-edge_index = torch.tensor([[node_idx[u], node_idx[v]] for u, v in edges] +
-                          [[node_idx[v], node_idx[u]] for u, v in edges], dtype=torch.long).t().to(device)
-
-A = torch.zeros((len(nodes), len(nodes)), dtype=torch.float32)
-for u, v in edges:
-    i, j = node_idx[u], node_idx[v]
-    A[i, j] = 1
-    A[j, i] = 1  # undirected
+thresh = 0.9
+dist_df = pd.read_csv('/home/chaurasi/networkml/eeg-gnn-ssl/distances_3d.csv')
+A, sensor_id_to_ind = utils.get_adjacency_matrix(dist_df, INCLUDED_CHANNELS, dist_k=thresh)
 
 def _compute_supports(adj_mat, filter_type):
     """
@@ -180,16 +174,16 @@ def _compute_supports(adj_mat, filter_type):
 # Model, Loss, Optimizer
 # --------------------------
 num_nodes = 19
-rnn_units = 128
+rnn_units = 64
 num_rnn_layers = 2
 input_dim = 1
 num_classes = 1
 max_diffusion_step = 2
 dcgru_activation = 'tanh'
-filter_type = 'dual_random_walk'
+filter_type = 'laplacian'
 dropout = 0.2
-lr = 1e-5
-epochs = 200
+lr = 1e-4
+epochs = 100
 
 supports = _compute_supports(A, filter_type)
 supports = [support.to(device) for support in supports]
@@ -225,6 +219,8 @@ model = DCRNNModel_classification(
 print('Number of trainable parameters:', sum(p.numel() for p in model.parameters() if p.requires_grad))
 
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
+
 criterion = nn.BCEWithLogitsLoss()
 
 # --------------------------
@@ -282,4 +278,6 @@ for epoch in tqdm(range(epochs), desc="Training"):
         torch.save(model.state_dict(), ckpt_path)
         print(f"✅ New best model saved with accuracy: {acc:.4f}")
 
+    scheduler.step()
+    
 wandb.finish()
