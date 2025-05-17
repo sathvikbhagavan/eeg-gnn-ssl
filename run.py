@@ -22,6 +22,9 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.optim.lr_scheduler import CosineAnnealingLR
+
+from sklearn.metrics import f1_score
 
 from model.model import DCRNNModel_classification
 
@@ -122,38 +125,31 @@ loader_va = DataLoader(dataset_va, batch_size=batch_size, shuffle=True)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
 
-# Define node list (in order, matching your image)
-nodes = [
-    'Fp1', 'Fp2', 'F7', 'F3', 'Fz', 'F4', 'F8',
-    'T3', 'C3', 'Cz', 'C4', 'T4',
-    'T5', 'P3', 'Pz', 'P4', 'T6',
-    'O1', 'O2'
+INCLUDED_CHANNELS = [
+    'FP1',
+    'FP2',
+    'F3',
+    'F4',
+    'C3',
+    'C4',
+    'P3',
+    'P4',
+    'O1',
+    'O2',
+    'F7',
+    'F8',
+    'T3',
+    'T4',
+    'T5',
+    'T6',
+    'FZ',
+    'CZ',
+    'PZ'
 ]
 
-# Define edge list (bidirectional edges for undirected graph)
-edges = [
-    ('Fp1', 'F7'), ('Fp1', 'F3'), ('Fp1', 'Fp2'),
-    ('Fp2', 'F4'), ('Fp2', 'F8'),
-    ('F7', 'F3'), ('F3', 'Fz'), ('Fz', 'F4'), ('F4', 'F8'),
-    ('F7', 'T3'), ('F3', 'C3'), ('Fz', 'Cz'), ('F4', 'C4'), ('F8', 'T4'),
-    ('T3', 'C3'), ('C3', 'Cz'), ('Cz', 'C4'), ('C4', 'T4'),
-    ('T3', 'T5'), ('C3', 'P3'), ('Cz', 'Pz'), ('C4', 'P4'), ('T4', 'T6'),
-    ('T5', 'P3'), ('P3', 'Pz'), ('Pz', 'P4'), ('P4', 'T6'),
-    ('T5', 'O1'), ('P3', 'O1'), ('Pz', 'O1'), ('Pz', 'O2'), ('P4', 'O2'), ('T6', 'O2')
-]
-
-# Create a mapping from node names to indices
-node_idx = {node: i for i, node in enumerate(nodes)}
-
-# Convert edge list to index tensors
-edge_index = torch.tensor([[node_idx[u], node_idx[v]] for u, v in edges] +
-                          [[node_idx[v], node_idx[u]] for u, v in edges], dtype=torch.long).t().to(device)
-
-A = torch.zeros((len(nodes), len(nodes)), dtype=torch.float32)
-for u, v in edges:
-    i, j = node_idx[u], node_idx[v]
-    A[i, j] = 1
-    A[j, i] = 1  # undirected
+thresh = 0.9
+dist_df = pd.read_csv('/home/chaurasi/networkml/eeg-gnn-ssl/distances_3d.csv')
+A, sensor_id_to_ind = utils.get_adjacency_matrix(dist_df, INCLUDED_CHANNELS, dist_k=thresh)
 
 def _compute_supports(adj_mat, filter_type):
     """
@@ -180,16 +176,16 @@ def _compute_supports(adj_mat, filter_type):
 # Model, Loss, Optimizer
 # --------------------------
 num_nodes = 19
-rnn_units = 128
+rnn_units = 64
 num_rnn_layers = 2
 input_dim = 1
 num_classes = 1
 max_diffusion_step = 2
 dcgru_activation = 'tanh'
-filter_type = 'dual_random_walk'
+filter_type = 'laplacian'
 dropout = 0.2
-lr = 1e-5
-epochs = 200
+lr = 1e-4
+epochs = 100
 
 supports = _compute_supports(A, filter_type)
 supports = [support.to(device) for support in supports]
@@ -225,6 +221,8 @@ model = DCRNNModel_classification(
 print('Number of trainable parameters:', sum(p.numel() for p in model.parameters() if p.requires_grad))
 
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
+
 criterion = nn.BCEWithLogitsLoss()
 
 # --------------------------
@@ -234,7 +232,7 @@ train_losses = []
 ckpt_path = os.path.join(wandb.run.dir, "best_diffusion_gnn_model.pth")
 
 global_step = 0
-best_acc = 0.0
+best_macrof1 = 0.0
 
 for epoch in tqdm(range(epochs), desc="Training"):
     model.train()
@@ -259,27 +257,31 @@ for epoch in tqdm(range(epochs), desc="Training"):
 
     # Evaluation phase for train accuracy
     model.eval()
-    correct = 0
-    total = 0
 
     with torch.no_grad():
+        y_pred_all = []
+        y_true_all = []
         for x_batch, y_batch in loader_va:
             x_batch = x_batch.float().unsqueeze(-1).to(device)
             y_batch = y_batch.float().unsqueeze(1).to(device)
             seq_lengths = torch.ones(x_batch.shape[0], dtype=torch.long).to(device)*354
             logits = model(x_batch, seq_lengths, supports)
             preds = torch.sigmoid(logits) >= 0.5
-            correct += (preds == y_batch.bool()).sum().item()
-            total += y_batch.size(0)
+            y_pred_all.append(preds)
+            y_true_all.append(y_batch.bool())
 
-    acc = correct / total
-    print(f"Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.4f}, Accuracy: {acc:.4f}")
-    wandb.log({"loss": avg_loss, "accuracy": acc, "epoch": epoch + 1})
+    y_pred_all = torch.flatten(torch.concatenate(y_pred_all, axis = 0))
+    y_true_all = torch.flatten(torch.concatenate(y_true_all, axis = 0))
+    macrof1 = f1_score(y_true_all.cpu(), y_pred_all.cpu(), average='macro')
+    print(f"Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.4f}, Macrof1: {macrof1:.4f}")
+    wandb.log({"loss": avg_loss, "Macrof1": macrof1, "epoch": epoch + 1})
     
     # Save model if best accuracy so far
-    if acc > best_acc:
-        best_acc = acc
+    if macrof1 > best_macrof1:
+        best_macrof1 = macrof1
         torch.save(model.state_dict(), ckpt_path)
-        print(f"✅ New best model saved with accuracy: {acc:.4f}")
+        print(f"✅ New best model saved with macrof1: {macrof1:.4f}")
 
+    scheduler.step()
+    
 wandb.finish()
