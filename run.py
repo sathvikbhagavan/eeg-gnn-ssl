@@ -24,6 +24,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
+from sklearn.metrics import f1_score
+
 from model.model import DCRNNModel_classification
 
 import wandb
@@ -230,7 +232,7 @@ train_losses = []
 ckpt_path = os.path.join(wandb.run.dir, "best_diffusion_gnn_model.pth")
 
 global_step = 0
-best_acc = 0.0
+best_macrof1 = 0.0
 
 for epoch in tqdm(range(epochs), desc="Training"):
     model.train()
@@ -255,28 +257,30 @@ for epoch in tqdm(range(epochs), desc="Training"):
 
     # Evaluation phase for train accuracy
     model.eval()
-    correct = 0
-    total = 0
 
     with torch.no_grad():
+        y_pred_all = []
+        y_true_all = []
         for x_batch, y_batch in loader_va:
             x_batch = x_batch.float().unsqueeze(-1).to(device)
             y_batch = y_batch.float().unsqueeze(1).to(device)
             seq_lengths = torch.ones(x_batch.shape[0], dtype=torch.long).to(device)*354
             logits = model(x_batch, seq_lengths, supports)
             preds = torch.sigmoid(logits) >= 0.5
-            correct += (preds == y_batch.bool()).sum().item()
-            total += y_batch.size(0)
+            y_pred_all.append(preds)
+            y_true_all.append(y_batch.bool())
 
-    acc = correct / total
-    print(f"Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.4f}, Accuracy: {acc:.4f}")
-    wandb.log({"loss": avg_loss, "accuracy": acc, "epoch": epoch + 1})
+    y_pred_all = torch.flatten(torch.concatenate(y_pred_all, axis = 0))
+    y_true_all = torch.flatten(torch.concatenate(y_true_all, axis = 0))
+    macrof1 = f1_score(y_true_all.cpu(), y_pred_all.cpu(), average='macro')
+    print(f"Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.4f}, Macrof1: {macrof1:.4f}")
+    wandb.log({"loss": avg_loss, "Macrof1": macrof1, "epoch": epoch + 1})
     
     # Save model if best accuracy so far
-    if acc > best_acc:
-        best_acc = acc
+    if macrof1 > best_macrof1:
+        best_macrof1 = macrof1
         torch.save(model.state_dict(), ckpt_path)
-        print(f"✅ New best model saved with accuracy: {acc:.4f}")
+        print(f"✅ New best model saved with macrof1: {macrof1:.4f}")
 
     scheduler.step()
     
