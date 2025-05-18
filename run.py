@@ -239,6 +239,10 @@ for epoch in tqdm(range(epochs), desc="Training"):
     running_loss = 0.0
 
     for x_batch, y_batch in loader_tr:
+        if filter_type in ['random_walk', 'dual_random_walk']:
+            A = utils.get_indiv_graphs(torch.moveaxis(x_batch, 0, 2))
+            supports = _compute_supports(A, filter_type)
+            supports = [support.to(device) for support in supports]
         seq_lengths = torch.ones(x_batch.shape[0], dtype=torch.long).to(device)*354
         x_batch = x_batch.float().unsqueeze(-1).to(device)
         y_batch = y_batch.float().unsqueeze(1).to(device)
@@ -262,6 +266,10 @@ for epoch in tqdm(range(epochs), desc="Training"):
         y_pred_all = []
         y_true_all = []
         for x_batch, y_batch in loader_va:
+            if filter_type in ['random_walk', 'dual_random_walk']:
+                A = utils.get_indiv_graphs(torch.moveaxis(x_batch, 0, 2))
+                supports = _compute_supports(A, filter_type)
+                supports = [support.to(device) for support in supports]
             x_batch = x_batch.float().unsqueeze(-1).to(device)
             y_batch = y_batch.float().unsqueeze(1).to(device)
             seq_lengths = torch.ones(x_batch.shape[0], dtype=torch.long).to(device)*354
