@@ -33,6 +33,8 @@ import os
 import sys
 import pickle
 import scipy.sparse as sp
+from data.data_utils import keep_topk
+from scipy.signal import correlate
 
 MASK = 0.
 LARGE_NUM = 1e9
@@ -526,3 +528,61 @@ def get_adjacency_matrix(distance_df, sensor_ids, dist_k=0.9):
     adj_mx[dist_mx > dist_k] = 0
    
     return adj_mx, sensor_id_to_ind
+
+def comp_xcorr(x, y, mode="valid", normalize=True):
+    """
+    Compute cross-correlation between 2 1D signals x, y
+    Args:
+        x: 1D array
+        y: 1D array
+        mode: 'valid', 'full' or 'same',
+            refer to https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.correlate.html
+        normalize: If True, will normalize cross-correlation
+    Returns:
+        xcorr: cross-correlation of x and y
+    """
+    xcorr = correlate(x, y, mode=mode)
+    # the below normalization code refers to matlab xcorr function
+    cxx0 = torch.sum(torch.absolute(x) ** 2)
+    cyy0 = torch.sum(torch.absolute(y) ** 2)
+    if normalize and (cxx0 != 0) and (cyy0 != 0):
+        scale = (cxx0 * cyy0) ** 0.5
+        xcorr /= scale
+    return xcorr
+
+def get_indiv_graphs(eeg_clip, top_k = 3):
+    """
+    Compute adjacency matrix for correlation graph
+    Args:
+        eeg_clip: shape (seq_len, num_nodes, input_dim)
+    Returns:
+        adj_mat: adjacency matrix, shape (num_nodes, num_nodes)
+    """
+    num_sensors = 19
+    adj_mat = np.eye(num_sensors, num_sensors,
+                        dtype=np.float32)  # diagonal is 1
+
+    # (num_nodes, seq_len, input_dim)
+    eeg_clip = np.transpose(eeg_clip, (1, 0, 2))
+    assert eeg_clip.shape[0] == num_sensors
+
+    # (num_nodes, seq_len*input_dim)
+    eeg_clip = eeg_clip.reshape((num_sensors, -1))
+
+    for i in range(0, num_sensors):
+        for j in range(i + 1, num_sensors):
+            xcorr = comp_xcorr(
+                eeg_clip[i, :], eeg_clip[j, :], mode='valid', normalize=True)
+            adj_mat[i, j] = xcorr
+            adj_mat[j, i] = xcorr
+
+    adj_mat = abs(adj_mat)
+
+    if (top_k is not None):
+        adj_mat = keep_topk(adj_mat, top_k=top_k, directed=True)
+    else:
+        raise ValueError('Invalid top_k value!')
+
+    return adj_mat
+
+
