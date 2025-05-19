@@ -143,6 +143,12 @@ with torch.no_grad():
         # Assume each batch returns a tuple (x_batch, sample_id)
         # If your dataset does not provide IDs, you can generate them based on the batch index.
         x_batch, x_ids = batch
+
+        if filter_type in ['random_walk', 'dual_random_walk']:
+            A = utils.get_indiv_graphs(torch.moveaxis(x_batch, 0, 2))
+            supports = _compute_supports(A, filter_type)
+            supports = [support.to(device) for support in supports]
+            
         actual_x_ids = x_ids
         x_ids = [clean_underscores(x_id) for x_id in x_ids]  # Clean the IDs
 
