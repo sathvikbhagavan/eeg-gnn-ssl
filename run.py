@@ -119,7 +119,7 @@ def seed_everything(seed: int):
 seed_everything(1)
 batch_size = 128
 loader_tr = DataLoader(dataset_tr, batch_size=batch_size, shuffle=True)
-loader_va = DataLoader(dataset_va, batch_size=batch_size, shuffle=True)
+loader_va = DataLoader(dataset_va, batch_size=batch_size, shuffle=False)
 
 # Set up device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
