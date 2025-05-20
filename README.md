@@ -1,3 +1,13 @@
+| Configuration  | Max F1 on Val Set | Wandb Config Name |
+| ------------- | ------------- | ------------- | 
+| Distance Graph, lr=1e-5, dropout=0  | 0.5631 |Eigth_HypTuning  | 
+| Distance Graph, lr=1e-4, dropout=0  | 0.5830 |Ninth_HypTuning  | 
+| Distance Graph, lr=1e-3, dropout=0  | 0.7174 |Thirteenth_HypTuning | 
+| Distance Graph, lr=1e-5, dropout=0.2  | 0.5610 |Tenth_HypTuning  | 
+| Distance Graph, lr=1e-4, dropout=0.2  | 0.5694 |Eleventh_Hyptuning | 
+| Distance Graph, lr=1e-3, dropout=0.2  | 0.6901 |Twelfth_HypTuning  | 
+| Correlation Graph, lr=1e-3, dropout=0  | 0.6401 |Fourteenth_HypTuning |
+
 # Self-Supervised Graph Neural Networks for Improved Electroencephalographic Seizure Analysis
 
 Siyi Tang, Jared A. Dunnmon, Khaled Saab, Xuan Zhang, Qianying Huang, Florian Dubost, Daniel L. Rubin, Christopher Lee-Messer. *International Conference on Learning Representations, 2022*. https://openreview.net/pdf?id=k9bx1EfHI_-
