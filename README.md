@@ -7,8 +7,9 @@
 | Distance Graph, lr=1e-4, dropout=0.2  | 0.5694 |Eleventh_Hyptuning | 
 | Distance Graph, lr=1e-3, dropout=0.2  | 0.6901 |Twelfth_HypTuning  | 
 | Correlation Graph, lr=1e-3, dropout=0, rnn_units = 64  | 0.6401 |Fourteenth_HypTuning |
-| Correlation Graph, lr=1e-3, dropout=0, rnn_units = 128  |  |Sixteenth_HypTuning |
+| Correlation Graph, lr=1e-3, dropout=0, rnn_units = 128  |  0.6389 |Sixteenth_HypTuning |
 | Correlation Graph, lr=1e-4, dropout=0, rnn_units = 64  | 0.6082 |Fifteenth_HypTuning |
+| Correlation Graph, lr=1e-4, dropout=0, rnn_units = 128  |  |Fifteenth_HypTuning |
 
 
 # Self-Supervised Graph Neural Networks for Improved Electroencephalographic Seizure Analysis
