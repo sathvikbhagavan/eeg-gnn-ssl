@@ -1,0 +1,101 @@
+absl-py @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-absl-py-1.2.0-tclje3zjemd47sjx536er3zdv3xlpii3/spack-src
+aiohappyeyeballs==2.6.1
+aiohttp==3.12.0
+aiosignal==1.3.2
+annotated-types==0.7.0
+antlr4-python3-runtime==4.9.3
+astunparse @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-astunparse-1.6.3-ulisvek46u72xfghdij6kwsrknjgvmkc/spack-src
+async-timeout==5.0.1
+attrs==25.3.0
+backports.entry-points-selectable @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-backports-entry-points-selectable-1.1.1-k6kp3kgv5yexxpdcl3sbfoxdwnwcxrds/spack-src
+certifi @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-certifi-2021.10.8-d3het4m7suvzssdrivzmdz4i6wpgjfz3/spack-src
+charset-normalizer @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-charset-normalizer-2.0.12-kgsquabgjeckmx4vpt3sulucddir2nik/spack-src
+click==8.2.0
+cycler @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-cycler-0.11.0-gy5pnerzry55cw77zc3qwikte3coi6us/spack-src
+Cython @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-cython-0.29.30-jq4f562iu6wmvygwbwgklyihzxb2tgdw/spack-src
+distlib @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-distlib-0.3.4-brcylspnnh4mfv3jb4tql5lmzppl3dif/spack-src
+docker-pycreds==0.4.0
+filelock @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-filelock-3.5.0-yu74mwoz2gnixb5g76wpagqe435tz35n/spack-src
+frozenlist==1.6.0
+fsspec==2025.3.2
+gast @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-gast-0.5.3-5pcfhphdgmbataldmgbdf4jeg4ioivfn/spack-src
+gitdb==4.0.12
+GitPython==3.1.44
+google-pasta @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-google-pasta-0.2.0-jpnvvxcr65vxmmqjuyvevn6ls4ltsur4/spack-src
+h5py==3.13.0
+idna @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-idna-3.3-qbqrjwtcnvnzxkhfe42xyakqc63226qm/spack-src
+Jinja2==3.1.6
+joblib==1.5.0
+Keras-Preprocessing @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-keras-preprocessing-1.1.2-ii6livelvujx5yowqtqhfhhzwgdypaau/spack-src
+kiwisolver @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-kiwisolver-1.3.2-cgj53v3shxxi4c4mndigeipkhsyx3l4c/spack-src
+MarkupSafe==3.0.2
+matplotlib @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-matplotlib-3.5.2-thk6fsqtp35ngoovofzhfqlgorpvvgmq/spack-src
+mpmath @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-mpmath-1.2.1-h24ymvv677wjbbpsx6ls4rrkfpgnxiec/spack-src
+multidict==6.4.4
+mypy_extensions==1.1.0
+networkx==3.4.2
+numpy==1.24.4
+nvidia-cublas-cu12==12.6.4.1
+nvidia-cuda-cupti-cu12==12.6.80
+nvidia-cuda-nvrtc-cu12==12.6.77
+nvidia-cuda-runtime-cu12==12.6.77
+nvidia-cudnn-cu12==9.5.1.17
+nvidia-cufft-cu12==11.3.0.4
+nvidia-cufile-cu12==1.11.1.6
+nvidia-curand-cu12==10.3.7.77
+nvidia-cusolver-cu12==11.7.1.2
+nvidia-cusparse-cu12==12.5.4.2
+nvidia-cusparselt-cu12==0.6.3
+nvidia-nccl-cu12==2.26.2
+nvidia-nvjitlink-cu12==12.6.85
+nvidia-nvtx-cu12==12.6.77
+omegaconf==2.3.0
+opt-einsum @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-opt-einsum-3.3.0-ursmajvomvrxvtplprnyeg7vmfctgfge/spack-src
+packaging @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-packaging-21.3-owurk6h2jndweqgngynrd5pdkry3uezo/spack-src
+pandas==2.2.3
+pandera==0.23.1
+pexpect==4.9.0
+Pillow @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-pillow-9.0.0-l3p4n7rjj2xmvznwj23v7v5nforkwbpj/spack-src
+platformdirs @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-platformdirs-2.4.0-3dg66g2lhyk76kegaiqu5ea7cwgrtnl3/spack-src
+ply @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-ply-3.11-tysw5mmwk2scesthzhr2gvmf3yesokg3/spack-src
+propcache==0.3.1
+protobuf @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-protobuf-3.20.0-k24mrqsy5gkgohfpzqexyw6g72vceo2t/spack-src
+psutil==7.0.0
+ptyprocess==0.7.0
+pyarrow==20.0.0
+pydantic==2.11.4
+pydantic_core==2.33.2
+pyEDFlib==0.1.40
+pyparsing @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-pyparsing-3.0.6-a4e4s5whtjvrbezg3llbzdbu74k6etcr/spack-src
+python-dateutil @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-python-dateutil-2.8.2-ojrwq3ilvtg5cn6i7clcsdivkp74gese/spack-src
+pytz @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-pytz-2021.3-hbwegowbu4r6d3xtvwdfdzt4gvdqhrto/spack-src
+PyYAML==6.0.2
+requests @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-requests-2.26.0-5vg6jfblh4sm774zrnb4g47wn2pgnl4u/spack-src
+scikit-learn==1.6.1
+scipy @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-scipy-1.8.1-f67fbhay2j2qer5345oqfh3jqjwzbcmv/spack-src
+seiz_eeg==0.4.3
+semver @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-semver-2.8.1-m6lw6jqc3dixn4gnfxpywvx5sjrzn4mq/spack-src
+sentry-sdk==2.28.0
+setproctitle==1.3.6
+six @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-six-1.16.0-vudlda3qpfdxpnellfzedlmke56hphdx/spack-src
+sklearn==0.0
+smmap==5.0.2
+sphire @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-eman2-2.91-uy2mbdqkfued4yjb5fb4qfgvhd3f2i4s/spack-src/sphire
+sympy==1.14.0
+termcolor @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-termcolor-1.1.0-crxlulkg6rqppbswoufcweloc6jntmf2/spack-src
+threadpoolctl==3.6.0
+torch==2.7.0
+torch-geometric==2.6.1
+tqdm==4.67.1
+triton==3.3.0
+typeguard==4.4.2
+typing-inspect==0.9.0
+typing-inspection==0.4.0
+typing_extensions==4.13.2
+tzdata==2025.2
+urllib3==1.26.20
+virtualenv @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-virtualenv-20.10.0-ixuaxlmnzuj5d3h5hnx3owiitcddd67h/spack-src
+wandb==0.19.11
+wrapt @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-wrapt-1.13.3-q5mixgn42asnecftwmkc6ruxjlzbrz3x/spack-src
+xarray @ file:///tmp/scitasbuild/syrah.v1/tmp/spack-stage-py-xarray-2022.3.0-4qfvovf2xiuu2v5djqag4ku2hl62mvij/spack-src
+yarl==1.20.0
