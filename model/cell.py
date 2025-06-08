@@ -1,15 +1,8 @@
-"""
-Some code are adapted from https://github.com/liyaguang/DCRNN
-and https://github.com/xlwang233/pytorch-DCRNN, which are
-licensed under the MIT License.
-"""
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-import utils
 import torch
 import torch.nn as nn
 
