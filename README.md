@@ -1,3 +1,9 @@
+The requirements.txt file lists all the Python libraries that the code depends on. On terminal, run the following to install them:
+
+```
+pip install -r requirements.txt
+```
+
 ## To run Distance Based Graph
 
 
