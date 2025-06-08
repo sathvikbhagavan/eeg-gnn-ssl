@@ -91,6 +91,7 @@ def main(args):
     max_diffusion_step = 2
     dcgru_activation = 'tanh'
     dropout = 0.2
+    lr = 1e-4
 
     if args.wandblog:
         # Initialize Weights and Biases
@@ -104,7 +105,7 @@ def main(args):
             "dcgru_activation": dcgru_activation,
             "adjancency_graph": args.graph_type,
             "dropout": dropout,
-            "lr": args.lr_init,
+            "lr": lr,
             "epochs": args.num_epochs,
             "batch_size": batch_size
         })
@@ -129,9 +130,9 @@ def main(args):
     print('Number of trainable parameters:', sum(p.numel() for p in model.parameters() if p.requires_grad))
 
     if args.graph_type == 'distance':
-        train_distance_graph(model, loader_tr, loader_va, args, device)
+        train_distance_graph(model, loader_tr, loader_va, args, lr, device)
     elif args.graph_type == 'correlation':
-        train_correlation_graph(model, loader_tr, loader_va, args, device)
+        train_correlation_graph(model, loader_tr, loader_va, args, lr, device)
 
     model.load_state_dict(torch.load(args.best_ckpt_path, map_location=device))  # Load the trained model weights
     model.to(device)
@@ -141,10 +142,10 @@ def main(args):
     elif args.graph_type == 'correlation':
         evaluate_correlation_graph(model, loader_te, args, device)
 
-def train_distance_graph(model, loader_tr, loader_va, args, device):
+def train_distance_graph(model, loader_tr, loader_va, args, lr, device):
 
     epochs = args.num_epochs
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr_init)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
     criterion = nn.BCEWithLogitsLoss()
 
@@ -216,10 +217,10 @@ def train_distance_graph(model, loader_tr, loader_va, args, device):
     if args.wandblog:  
         wandb.finish()
 
-def train_correlation_graph(model, loader_tr, loader_va, args, device):
+def train_correlation_graph(model, loader_tr, loader_va, args, lr, device):
     
     epochs = args.num_epochs
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr_init)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
     criterion = nn.BCEWithLogitsLoss()
 
@@ -391,7 +392,6 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--wandblog', type=int, default=0)
     parser.add_argument('--graph_type', type=str, default='distance')
-    parser.add_argument('--lr_init', type=float, default=1e-4)
     parser.add_argument('--num_epochs', type=int, default=10)
     parser.add_argument('--best_ckpt_path', type=str, default='')
 
