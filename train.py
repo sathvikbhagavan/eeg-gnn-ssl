@@ -53,10 +53,9 @@ def main(args):
 
     DATA_ROOT = Path(args.data_path)
 
-    # Load the train, validation and test split.
+    # Load the train, validation split.
     clips_tr = pd.read_parquet("segments_train.parquet")
     clips_va = pd.read_parquet("segments_val.parquet")
-    clips_te = pd.read_parquet(DATA_ROOT / "test/segments.parquet")
 
     dataset_tr = EEGDataset(
     clips_tr,
@@ -70,21 +69,12 @@ def main(args):
         signals_root=DATA_ROOT / "train",
         signal_transform=utils.fft_filtering, # Frequency domain transformation
         prefetch=True,  # If your compute does not allow it, you can use `prefetch=False`
-    )
-
-    dataset_te = EEGDataset(
-        clips_te,  # Your test clips variable
-        signals_root=DATA_ROOT / "test",  # Update this path if your test signals are stored elsewhere
-        signal_transform=utils.fft_filtering,  # Frequency domain transformation
-        prefetch=True,  # Set to False if prefetching causes memory issues on your compute environment
-        return_id=True,  # Return the id of each sample instead of the label
-    )    
+    )  
 
     # Initialize the data loaders
     batch_size = args.batch_size
     loader_tr = DataLoader(dataset_tr, batch_size=batch_size, shuffle=True)
     loader_va = DataLoader(dataset_va, batch_size=batch_size, shuffle=False)
-    loader_te = DataLoader(dataset_te, batch_size=batch_size, shuffle=False)
 
     # Best Configuration of both Correlation and Distance Graph defined below.
     # Initialize the model parameters.
@@ -142,16 +132,6 @@ def main(args):
         train_distance_graph(model, loader_tr, loader_va, args, lr, device)
     elif args.graph_type == 'correlation':
         train_correlation_graph(model, loader_tr, loader_va, args, lr, device)
-
-    # Load the best model from args.best_ckpt_path
-    model.load_state_dict(torch.load(args.best_ckpt_path, map_location=device))  # Load the trained model weights
-    model.to(device)
-
-    # Generate the model's predictions on test set.
-    if args.graph_type == 'distance':
-        inference_distance_graph(model, loader_te, args, device)
-    elif args.graph_type == 'correlation':
-        inference_correlation_graph(model, loader_te, args, device)
 
 def train_distance_graph(model, loader_tr, loader_va, args, lr, device):
 
@@ -337,100 +317,6 @@ def train_correlation_graph(model, loader_tr, loader_va, args, lr, device):
 
     if args.wandblog:  
         wandb.finish()
-
-def inference_distance_graph(model, loader_te, args, device):
-    
-    # Turn on the model's evaluation mode.
-    model.eval()
-
-    # Compute the Distance Adjacency Matrix and make it sparse using threshold 0.9
-    thresh = 0.9
-    dist_df = pd.read_csv('distances_3d.csv')
-    A = utils.get_adjacency_matrix(dist_df, INCLUDED_CHANNELS, dist_k=thresh)
-
-    # Compute the supports (ChebNet graph conv)
-    filter_type = 'laplacian'
-    supports = utils.compute_supports(A, filter_type)
-    supports = [support.to(device) for support in supports]
-
-    # Lists to store sample IDs and predictions
-    all_predictions = []
-    all_ids = []
-
-    # Disable gradient computation for inference
-    with torch.no_grad():
-        for batch in loader_te:
-            # Assume each batch returns a tuple (x_batch, sample_id)
-            # If your dataset does not provide IDs, you can generate them based on the batch index.
-            x_batch, x_ids = batch
-
-            # Move the input data to the device (GPU or CPU)
-            x_batch = x_batch.float().to(device)
-
-            # Perform the forward pass to get the model's output logits
-            seq_lengths = torch.ones(x_batch.shape[0], dtype=torch.long).to(device)*354
-            logits = model(x_batch, seq_lengths, supports)
-
-            # Convert logits to predictions.
-            # 0.5 threshold used for binary classification.
-            predictions = (torch.sigmoid(logits) >= 0.5).int().cpu().numpy()
-
-            # Append predictions and corresponding IDs to the lists
-            all_predictions.extend(predictions.flatten().tolist())
-            all_ids.extend(list(x_ids))
-
-    # Create a DataFrame for Kaggle submission with the required format: "id,label"
-    submission_df = pd.DataFrame({"id": all_ids, "label": all_predictions})
-
-    # Save the DataFrame to a CSV file without an index
-    submission_df.to_csv("submission.csv", index=False)
-    print("Kaggle submission file generated: submission.csv")
-
-def inference_correlation_graph(model, loader_te, args, device):
-    
-    # Turn on the model's evaluation mode.
-    model.eval()
-    
-    filter_type = 'dual_random_walk'
-
-    # Lists to store sample IDs and predictions
-    all_predictions = []
-    all_ids = []
-
-    # Disable gradient computation for inference
-    with torch.no_grad():
-        for batch in loader_te:
-            # Assume each batch returns a tuple (x_batch, sample_id)
-            # If your dataset does not provide IDs, you can generate them based on the batch index.
-            x_batch, x_ids = batch
-
-            # Compute on the fly Correlation Adjacency matrix and supports (Bidirectional random walk)
-            A = utils.get_indiv_graphs(torch.moveaxis(x_batch, 0, 2))
-            supports = utils.compute_supports(A, filter_type)
-            supports = [support.to(device) for support in supports]
-
-            # Move the input data to the device (GPU or CPU)
-            x_batch = x_batch.float().to(device)
-
-            # Perform the forward pass to get the model's output logits
-            seq_lengths = torch.ones(x_batch.shape[0], dtype=torch.long).to(device)*354
-            logits = model(x_batch, seq_lengths, supports)
-
-            # Convert logits to predictions.
-            # 0.5 threshold used for binary classification.
-            predictions = (torch.sigmoid(logits) >= 0.5).int().cpu().numpy()
-
-            # Append predictions and corresponding IDs to the lists
-            all_predictions.extend(predictions.flatten().tolist())
-            all_ids.extend(list(x_ids))
-
-    # Create a DataFrame for Kaggle submission with the required format: "id,label"
-    submission_df = pd.DataFrame({"id": all_ids, "label": all_predictions})
-
-    # Save the DataFrame to a CSV file without an index
-    submission_df.to_csv("submission.csv", index=False)
-    print("Kaggle submission file generated: submission.csv")
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='plotting loss surface')
