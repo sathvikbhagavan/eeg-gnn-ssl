@@ -37,6 +37,7 @@ def get_adjacency_matrix(distance_df, sensor_ids, dist_k=0.9):
    
     return adj_mx
 
+
 def comp_xcorr(x, y, mode="valid", normalize=True):
     """
     Compute cross-correlation between 2 1D signals x, y
@@ -57,6 +58,7 @@ def comp_xcorr(x, y, mode="valid", normalize=True):
         scale = (cxx0 * cyy0) ** 0.5
         xcorr /= scale
     return xcorr
+
 
 def get_indiv_graphs(eeg_clip, top_k = 3):
     """
@@ -86,13 +88,13 @@ def get_indiv_graphs(eeg_clip, top_k = 3):
 
     adj_mat = abs(adj_mat)
 
+    # We only keep the top k neighbours to maintain sparsity.
     if (top_k is not None):
         adj_mat = keep_topk(adj_mat, top_k=top_k, directed=True)
     else:
         raise ValueError('Invalid top_k value!')
 
     return adj_mat
-
 
 
 def calculate_normalized_laplacian(adj):
@@ -108,7 +110,6 @@ def calculate_normalized_laplacian(adj):
     normalized_laplacian = sp.eye(
         adj.shape[0]) - adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).tocoo()
     return normalized_laplacian
-
 
 
 def calculate_scaled_laplacian(adj_mx, lambda_max=2, undirected=True):
@@ -138,9 +139,9 @@ def calculate_random_walk_matrix(adj_mx):
     d_inv = np.power(d, -1).flatten()
     d_inv[np.isinf(d_inv)] = 0.
     d_mat_inv = sp.diags(d_inv)
+    # D_o^-1W
     random_walk_mx = d_mat_inv.dot(adj_mx).tocoo()
     return random_walk_mx
-
 
 
 def keep_topk(adj_mat, top_k=3, directed=True):
@@ -173,7 +174,7 @@ def keep_topk(adj_mat, top_k=3, directed=True):
 
 
 def fft_filtering(x: np.ndarray) -> np.ndarray:
-    """Compute FFT and only keep"""
+    """Compute FFT and only keep a certain band"""
     x = np.abs(np.fft.fft(x, axis=0))
     x = np.log(np.where(x > 1e-8, x, 1e-8))
     win_len = x.shape[0]
@@ -182,7 +183,7 @@ def fft_filtering(x: np.ndarray) -> np.ndarray:
 
 def compute_supports(adj_mat, filter_type):
     """
-    Compute supports
+    Compute supports for the diffusion process depending on the Distance or Correlation Graph.
     """
     supports = []
     supports_mat = []
@@ -201,6 +202,7 @@ def compute_supports(adj_mat, filter_type):
 
 
 def last_relevant_pytorch(output, lengths, batch_first=True):
+    # Get the last output in 'output'.
     lengths = lengths.cpu()
 
     # masks of the true seq lengths

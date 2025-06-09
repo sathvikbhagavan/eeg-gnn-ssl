@@ -67,7 +67,7 @@ class DCRNNEncoder(nn.Module):
         return torch.stack(init_states, dim=0)
 
 
-########## Model for seizure classification/detection ##########
+########## Final Model for seizure detection ##########
 class DCRNNModel_classification(nn.Module):
     def __init__(self, num_nodes, num_rnn_layers, rnn_units, input_dim, num_classes, max_diffusion_step, dcgru_activation, filter_type, dropout, device=None):
         super(DCRNNModel_classification, self).__init__()
@@ -127,4 +127,3 @@ class DCRNNModel_classification(nn.Module):
         pool_logits, _ = torch.max(logits, dim=1)  # (batch_size, num_classes)
 
         return pool_logits
-########## Model for seizure classification/detection ##########

@@ -37,6 +37,8 @@ class DiffusionGraphConv(nn.Module):
                     num_matrices,
                     output_dim)))
         self.biases = nn.Parameter(torch.FloatTensor(size=(output_dim,)))
+
+        # Initialize with normally distributed parameters
         nn.init.xavier_normal_(self.weight.data, gain=1.414)
         nn.init.constant_(self.biases.data, val=bias_start)
 
@@ -76,13 +78,13 @@ class DiffusionGraphConv(nn.Module):
             for support in supports:
                 # (batch, num_nodes, input_dim+hidden_dim)
                 x1 = torch.matmul(support, x0)
-                # (batch, ?, num_nodes, input_dim+hidden_dim)
+                # (batch, _, num_nodes, input_dim+hidden_dim)
                 x = self._concat(x, x1)
                 for k in range(2, self._max_diffusion_step + 1):
                     # (batch, num_nodes, input_dim+hidden_dim)
                     x2 = 2 * torch.matmul(support, x1) - x0
                     x = self._concat(
-                        x, x2)  # (batch, ?, num_nodes, input_dim+hidden_dim)
+                        x, x2)  # (batch, _, num_nodes, input_dim+hidden_dim)
                     x1, x0 = x2, x1
 
         num_matrices = len(supports) * \

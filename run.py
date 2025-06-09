@@ -38,6 +38,7 @@ def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Using device:", device)
 
+    # Seed everything for reproduction of results
     seed_everything(1)
 
     # You might need to change this according to where you store the data folder
@@ -52,6 +53,7 @@ def main(args):
 
     DATA_ROOT = Path(args.data_path)
 
+    # Load the train, validation and test split.
     clips_tr = pd.read_parquet("segments_train.parquet")
     clips_va = pd.read_parquet("segments_val.parquet")
     clips_te = pd.read_parquet(DATA_ROOT / "test/segments.parquet")
@@ -59,40 +61,44 @@ def main(args):
     dataset_tr = EEGDataset(
     clips_tr,
     signals_root=DATA_ROOT / "train",
-    signal_transform=utils.fft_filtering,
+    signal_transform=utils.fft_filtering, # Frequency domain transformation
     prefetch=True,  # If your compute does not allow it, you can use `prefetch=False`
     )
 
     dataset_va = EEGDataset(
         clips_va,
         signals_root=DATA_ROOT / "train",
-        signal_transform=utils.fft_filtering,
+        signal_transform=utils.fft_filtering, # Frequency domain transformation
         prefetch=True,  # If your compute does not allow it, you can use `prefetch=False`
     )
 
     dataset_te = EEGDataset(
         clips_te,  # Your test clips variable
         signals_root=DATA_ROOT / "test",  # Update this path if your test signals are stored elsewhere
-        signal_transform=utils.fft_filtering,  # You can change or remove the signal_transform as needed
+        signal_transform=utils.fft_filtering,  # Frequency domain transformation
         prefetch=True,  # Set to False if prefetching causes memory issues on your compute environment
         return_id=True,  # Return the id of each sample instead of the label
     )    
 
+    # Initialize the data loaders
     batch_size = args.batch_size
     loader_tr = DataLoader(dataset_tr, batch_size=batch_size, shuffle=True)
     loader_va = DataLoader(dataset_va, batch_size=batch_size, shuffle=False)
     loader_te = DataLoader(dataset_te, batch_size=batch_size, shuffle=False)
 
-    num_nodes = 19
-    rnn_units = 64
-    num_rnn_layers = 2
-    input_dim = 1
-    num_classes = 1
-    max_diffusion_step = 2
+    # Best Configuration of both Correlation and Distance Graph defined below.
+    # Initialize the model parameters.
+    num_nodes = 19 # Number of electrodes.
+    rnn_units = 64 # The hidden variable dimension of gru.
+    num_rnn_layers = 2 # Number of gru layers.
+    input_dim = 1 # Each electrode has one dimension.
+    num_classes = 1 # Seizure or not.
+    max_diffusion_step = 2 # How deep the diffusion walk should be.
     dcgru_activation = 'tanh'
-    dropout = 0.2
-    lr = 1e-4
+    dropout = 0 # Amount of dropout.
+    lr = 1e-3 # Learning rate.
 
+    # Whether you want to log your plots on wandb.
     if args.wandblog:
         # Initialize Weights and Biases
         wandb.init(project="diffusion-gnn", config={
@@ -110,8 +116,10 @@ def main(args):
             "batch_size": batch_size
         })
 
+    # Distance Graphs are undirected, hence we chose 'laplacian' for diffusion steps.
     if args.graph_type == 'distance':
         filter_type = 'laplacian'
+    # Correlation Graphs are directed, hence we chose 'bidirectional random walk' for diffusion steps.
     elif args.graph_type == 'correlation':
         filter_type = 'dual_random_walk'
 
@@ -129,42 +137,51 @@ def main(args):
     ).to(device)
     print('Number of trainable parameters:', sum(p.numel() for p in model.parameters() if p.requires_grad))
 
+    # Different training modules for distance adjacency matrix vs correlation adjacency matrix
     if args.graph_type == 'distance':
         train_distance_graph(model, loader_tr, loader_va, args, lr, device)
     elif args.graph_type == 'correlation':
         train_correlation_graph(model, loader_tr, loader_va, args, lr, device)
 
+    # Load the best model from args.best_ckpt_path
     model.load_state_dict(torch.load(args.best_ckpt_path, map_location=device))  # Load the trained model weights
     model.to(device)
 
+    # Generate the model's predictions on test set.
     if args.graph_type == 'distance':
-        evaluate_distance_graph(model, loader_te, args, device)
+        inference_distance_graph(model, loader_te, args, device)
     elif args.graph_type == 'correlation':
-        evaluate_correlation_graph(model, loader_te, args, device)
+        inference_correlation_graph(model, loader_te, args, device)
 
 def train_distance_graph(model, loader_tr, loader_va, args, lr, device):
 
-    epochs = args.num_epochs
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
-    criterion = nn.BCEWithLogitsLoss()
+    epochs = args.num_epochs # Total epochs.
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr) # Adam Optimizer used.
+    scheduler = CosineAnnealingLR(optimizer, T_max=epochs) # Learning rate decay.
+    criterion = nn.BCEWithLogitsLoss() # Binary Cross Entropy Loss.
 
     train_losses = []
     best_ckpt_path = args.best_ckpt_path
     global_step = 0
-    best_macrof1 = 0.0
+    best_macrof1 = 0.0 # Store the best Macro F1 score.
 
+    # Compute the Distance Adjacency Matrix and make it sparse using threshold 0.9
     thresh = 0.9
     dist_df = pd.read_csv('distances_3d.csv')
     A = utils.get_adjacency_matrix(dist_df, INCLUDED_CHANNELS, dist_k=thresh)
+
+    # Compute the supports (ChebNet graph conv)
     filter_type = 'laplacian'
     supports = utils.compute_supports(A, filter_type)
     supports = [support.to(device) for support in supports]
 
     for epoch in tqdm(range(epochs), desc="Training"):
+
+        # Turn on the model's training mode.
         model.train()
         running_loss = 0.0
 
+        # Per epoch training loop
         for x_batch, y_batch in loader_tr:
             seq_lengths = torch.ones(x_batch.shape[0], dtype=torch.long).to(device)*354
             x_batch = x_batch.float().unsqueeze(-1).to(device)
@@ -175,6 +192,7 @@ def train_distance_graph(model, loader_tr, loader_va, args, lr, device):
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
+            # Log the loss to wandb.
             if args.wandblog:
                 wandb.log({"loss": loss.item(), "global_step": global_step})
             print(f"Step {global_step}, Loss: {loss.item():.4f}")
@@ -183,7 +201,9 @@ def train_distance_graph(model, loader_tr, loader_va, args, lr, device):
         avg_loss = running_loss / len(loader_tr)
         train_losses.append(avg_loss)
 
-        # Evaluation phase for train accuracy
+        # Evaluation phase on validation data.
+
+        # Turn on the model's evaluation mode.
         model.eval()
 
         with torch.no_grad():
@@ -194,13 +214,18 @@ def train_distance_graph(model, loader_tr, loader_va, args, lr, device):
                 y_batch = y_batch.float().unsqueeze(1).to(device)
                 seq_lengths = torch.ones(x_batch.shape[0], dtype=torch.long).to(device)*354
                 logits = model(x_batch, seq_lengths, supports)
+
+                # 0.5 threshold used for binary classification.
                 preds = torch.sigmoid(logits) >= 0.5
                 y_pred_all.append(preds)
                 y_true_all.append(y_batch.bool())
 
+        # Calculate the MacroF1 score on the validation set.
         y_pred_all = torch.flatten(torch.concatenate(y_pred_all, axis = 0))
         y_true_all = torch.flatten(torch.concatenate(y_true_all, axis = 0))
         macrof1 = f1_score(y_true_all.cpu(), y_pred_all.cpu(), average='macro')
+
+        # Track the validation macrof1 to know overfitting or underfitting.
         print(f"Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.4f}, Macrof1: {macrof1:.4f}")
 
         if args.wandblog:
@@ -212,6 +237,7 @@ def train_distance_graph(model, loader_tr, loader_va, args, lr, device):
             torch.save(model.state_dict(), best_ckpt_path)
             print(f"✅ New best model saved with macrof1: {macrof1:.4f}")
 
+        # Learning Rate Decay Step.
         scheduler.step()
 
     if args.wandblog:  
@@ -219,24 +245,28 @@ def train_distance_graph(model, loader_tr, loader_va, args, lr, device):
 
 def train_correlation_graph(model, loader_tr, loader_va, args, lr, device):
     
-    epochs = args.num_epochs
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
-    criterion = nn.BCEWithLogitsLoss()
+    epochs = args.num_epochs # Total epochs.
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr) # Adam Optimizer used.
+    scheduler = CosineAnnealingLR(optimizer, T_max=epochs) # Learning rate decay.
+    criterion = nn.BCEWithLogitsLoss() # Binary Cross Entropy Loss.
 
     train_losses = []
     best_ckpt_path = args.best_ckpt_path
     global_step = 0
-    best_macrof1 = 0.0
+    best_macrof1 = 0.0 # Store the best Macro F1 score.
 
     filter_type = 'dual_random_walk'
 
     for epoch in tqdm(range(epochs), desc="Training"):
+
+        # Turn on the model's training mode.
         model.train()
         running_loss = 0.0
 
+        # Per epoch training loop
         for x_batch, y_batch in loader_tr:
 
+            # Compute on the fly Correlation Adjacency matrix and supports (Bidirectional random walk)
             A = utils.get_indiv_graphs(torch.moveaxis(x_batch, 0, 2))
             supports = utils.compute_supports(A, filter_type)
             supports = [support.to(device) for support in supports]
@@ -250,6 +280,8 @@ def train_correlation_graph(model, loader_tr, loader_va, args, lr, device):
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
+
+            # Log the loss to wandb.
             if args.wandblog:
                 wandb.log({"loss": loss.item(), "global_step": global_step})
             print(f"Step {global_step}, Loss: {loss.item():.4f}")
@@ -258,7 +290,9 @@ def train_correlation_graph(model, loader_tr, loader_va, args, lr, device):
         avg_loss = running_loss / len(loader_tr)
         train_losses.append(avg_loss)
 
-        # Evaluation phase for train accuracy
+        # Evaluation phase on validation data.
+
+        # Turn on the model's evaluation mode.
         model.eval()
 
         with torch.no_grad():
@@ -266,6 +300,7 @@ def train_correlation_graph(model, loader_tr, loader_va, args, lr, device):
             y_true_all = []
             for x_batch, y_batch in loader_va:
 
+                # Compute on the fly Correlation Adjacency matrix and supports (Bidirectional random walk)
                 A = utils.get_indiv_graphs(torch.moveaxis(x_batch, 0, 2))
                 supports = utils.compute_supports(A, filter_type)
                 supports = [support.to(device) for support in supports]
@@ -274,15 +309,20 @@ def train_correlation_graph(model, loader_tr, loader_va, args, lr, device):
                 y_batch = y_batch.float().unsqueeze(1).to(device)
                 seq_lengths = torch.ones(x_batch.shape[0], dtype=torch.long).to(device)*354
                 logits = model(x_batch, seq_lengths, supports)
+
+                # 0.5 threshold used for binary classification.
                 preds = torch.sigmoid(logits) >= 0.5
                 y_pred_all.append(preds)
                 y_true_all.append(y_batch.bool())
 
+        # Calculate the MacroF1 score on the validation set.
         y_pred_all = torch.flatten(torch.concatenate(y_pred_all, axis = 0))
         y_true_all = torch.flatten(torch.concatenate(y_true_all, axis = 0))
         macrof1 = f1_score(y_true_all.cpu(), y_pred_all.cpu(), average='macro')
-        print(f"Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.4f}, Macrof1: {macrof1:.4f}")
 
+        # Track the validation macrof1 to know overfitting or underfitting.
+        print(f"Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.4f}, Macrof1: {macrof1:.4f}")
+        
         if args.wandblog:
             wandb.log({"loss": avg_loss, "Macrof1": macrof1, "epoch": epoch + 1})
         
@@ -292,18 +332,23 @@ def train_correlation_graph(model, loader_tr, loader_va, args, lr, device):
             torch.save(model.state_dict(), best_ckpt_path)
             print(f"✅ New best model saved with macrof1: {macrof1:.4f}")
 
+        # Learning Rate Decay Step.
         scheduler.step()
 
     if args.wandblog:  
         wandb.finish()
 
-def evaluate_distance_graph(model, loader_te, args, device):
+def inference_distance_graph(model, loader_te, args, device):
     
+    # Turn on the model's evaluation mode.
     model.eval()
 
+    # Compute the Distance Adjacency Matrix and make it sparse using threshold 0.9
     thresh = 0.9
     dist_df = pd.read_csv('distances_3d.csv')
     A = utils.get_adjacency_matrix(dist_df, INCLUDED_CHANNELS, dist_k=thresh)
+
+    # Compute the supports (ChebNet graph conv)
     filter_type = 'laplacian'
     supports = utils.compute_supports(A, filter_type)
     supports = [support.to(device) for support in supports]
@@ -327,7 +372,7 @@ def evaluate_distance_graph(model, loader_te, args, device):
             logits = model(x_batch, seq_lengths, supports)
 
             # Convert logits to predictions.
-            # For binary classification, threshold logits at 0 (adjust this if you use softmax or multi-class).
+            # 0.5 threshold used for binary classification.
             predictions = (torch.sigmoid(logits) >= 0.5).int().cpu().numpy()
 
             # Append predictions and corresponding IDs to the lists
@@ -341,8 +386,9 @@ def evaluate_distance_graph(model, loader_te, args, device):
     submission_df.to_csv("submission.csv", index=False)
     print("Kaggle submission file generated: submission.csv")
 
-def evaluate_correlation_graph(model, loader_te, args, device):
+def inference_correlation_graph(model, loader_te, args, device):
     
+    # Turn on the model's evaluation mode.
     model.eval()
     
     filter_type = 'dual_random_walk'
@@ -358,6 +404,7 @@ def evaluate_correlation_graph(model, loader_te, args, device):
             # If your dataset does not provide IDs, you can generate them based on the batch index.
             x_batch, x_ids = batch
 
+            # Compute on the fly Correlation Adjacency matrix and supports (Bidirectional random walk)
             A = utils.get_indiv_graphs(torch.moveaxis(x_batch, 0, 2))
             supports = utils.compute_supports(A, filter_type)
             supports = [support.to(device) for support in supports]
@@ -370,7 +417,7 @@ def evaluate_correlation_graph(model, loader_te, args, device):
             logits = model(x_batch, seq_lengths, supports)
 
             # Convert logits to predictions.
-            # For binary classification, threshold logits at 0 (adjust this if you use softmax or multi-class).
+            # 0.5 threshold used for binary classification.
             predictions = (torch.sigmoid(logits) >= 0.5).int().cpu().numpy()
 
             # Append predictions and corresponding IDs to the lists
@@ -388,12 +435,12 @@ def evaluate_correlation_graph(model, loader_te, args, device):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='plotting loss surface')
 
-    parser.add_argument('--data_path', type=str, default='')
-    parser.add_argument('--batch_size', type=int, default=128)
-    parser.add_argument('--wandblog', type=int, default=0)
-    parser.add_argument('--graph_type', type=str, default='distance')
-    parser.add_argument('--num_epochs', type=int, default=10)
-    parser.add_argument('--best_ckpt_path', type=str, default='')
+    parser.add_argument('--data_path', type=str, default='') # directory where the eeg test and train data is present.
+    parser.add_argument('--batch_size', type=int, default=128) # Batch size to be used.
+    parser.add_argument('--wandblog', type=int, default=0) # Whether you want wandb logging or not.
+    parser.add_argument('--graph_type', type=str, default='distance') # What type of adjacency matrix you want.
+    parser.add_argument('--num_epochs', type=int, default=100) # Total number of epochs, 100 was done for the best model.
+    parser.add_argument('--best_ckpt_path', type=str, default='') # Directory where you want to save your best model checkpoint.
 
     args = parser.parse_args()
     main(args)
