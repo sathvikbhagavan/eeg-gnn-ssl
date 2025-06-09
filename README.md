@@ -4,24 +4,36 @@ The requirements.txt file lists all the Python libraries that the code depends o
 pip install -r requirements.txt
 ```
 
-## To run Distance Based Graph
+## Distance Based Graph
 
 
-On terminal, run the following:
+For Training: on terminal, run the following:
 ```
-python3 run.py --data_path <data_path> --batch_size 128 --wandblog 0 --graph_type 'distance' --num_epochs 1 --best_ckpt_path <best_ckpt_path>
+python3 train.py --data_path <data_path> --batch_size 128 --wandblog 0 --graph_type 'distance' --num_epochs 1 --best_ckpt_path <best_ckpt_path>
 ```
 where `<best_ckpt_path>` is the directory where you want to save your best model checkpoint, and `<data_path>` is the directory where the eeg test and train data is present.
+
+For Inference: on terminal, run the following:
+```
+python3 inference.py --data_path <data_path> --batch_size 128 --graph_type 'distance' --model_ckpt_path <model_ckpt_path>
+```
+where `<model_ckpt_path>` is the directory from where you want to load your pretrained model, and `<data_path>` is the directory where the eeg test and train data is present.
 
 ---
 
-## To run Correlation Based Graph
+## Correlation Based Graph
 
-On terminal, run the following:
+For Training: on terminal, run the following:
 ```
-python3 run.py --data_path <data_path> --batch_size 128 --wandblog 0 --graph_type 'correlation' --num_epochs 1 --best_ckpt_path <best_ckpt_path>
+python3 train.py --data_path <data_path> --batch_size 128 --wandblog 0 --graph_type 'correlation' --num_epochs 1 --best_ckpt_path <best_ckpt_path>
 ```
 where `<best_ckpt_path>` is the directory where you want to save your best model checkpoint, and `<data_path>` is the directory where the eeg test and train data is present.
+
+For Inference: on terminal, run the following:
+```
+python3 inference.py --data_path <data_path> --batch_size 128 --graph_type 'correlation' --model_ckpt_path <model_ckpt_path>
+```
+where `<model_ckpt_path>` is the directory from where you want to load your pretrained model, and `<data_path>` is the directory where the eeg test and train data is present.
 
 ---
 ## Hyperparameter Tuning Results 
